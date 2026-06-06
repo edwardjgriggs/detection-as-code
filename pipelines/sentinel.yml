@@ -1,0 +1,23 @@
+# pySigma processing pipeline for Microsoft Sentinel sign-in detections.
+#
+# This is a minimal starting pipeline. The kusto backend ships with bundled
+# pipelines for Sentinel and Defender XDR; prefer those where they fit, and
+# extend this file only for environment-specific field mappings. Verify the
+# transformation syntax against the pySigma and kusto backend version pinned
+# in the CI workflow before relying on it.
+
+name: sentinel-signin-pipeline
+priority: 100
+
+transformations:
+  - id: signin-table
+    type: set_state
+    key: query_table
+    val: SigninLogs
+
+  - id: field-mappings
+    type: field_name_mapping
+    mapping:
+      ResultType: ResultType
+      IPAddress: IPAddress
+      UserPrincipalName: UserPrincipalName
