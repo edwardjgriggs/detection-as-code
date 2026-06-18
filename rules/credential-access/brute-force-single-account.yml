@@ -1,0 +1,33 @@
+title: Azure AD Brute Force Against Single Account
+id: b2d4f6a8-1c3e-4a59-8d7b-9e0f1a2b3c4d
+status: experimental
+description: >
+  Detects a high volume of authentication failures against a single account,
+  consistent with password guessing.
+references:
+  - https://attack.mitre.org/techniques/T1110/001/
+author: Edward Griggs
+date: 2026/06/23
+logsource:
+  product: azure
+  service: signinlogs
+detection:
+  selection:
+    ResultType:
+      - '50126'
+      - '50053'
+      - '50055'
+      - '50056'
+  condition: selection
+  timeframe: 15m
+fields:
+  - UserPrincipalName
+  - IPAddress
+  - ResultType
+falsepositives:
+  - Stale saved credentials on a client retrying in a loop
+  - Service accounts with expired secrets
+level: medium
+tags:
+  - attack.credential-access
+  - attack.t1110.001
