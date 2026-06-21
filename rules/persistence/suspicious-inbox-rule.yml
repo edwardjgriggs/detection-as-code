@@ -1,0 +1,33 @@
+title: Suspicious Inbox Rule Creation
+id: d4f6a8c0-3e5a-4c7b-8d9e-1f2a3b4c5d6e
+status: experimental
+description: >
+  Detects creation or modification of mailbox rules that forward, redirect,
+  or silently delete mail, a hallmark of business email compromise.
+references:
+  - https://attack.mitre.org/techniques/T1098/002/
+  - https://attack.mitre.org/techniques/T1114/003/
+author: Edward Griggs
+date: 2026/06/23
+logsource:
+  product: m365
+  service: exchange
+detection:
+  selection:
+    Operation:
+      - 'New-InboxRule'
+      - 'Set-InboxRule'
+  condition: selection
+fields:
+  - UserId
+  - ClientIP
+  - Parameters
+falsepositives:
+  - Users configuring legitimate forwarding to a delegate mailbox
+  - Help desk staff configuring rules on a user's behalf
+level: high
+tags:
+  - attack.persistence
+  - attack.t1098.002
+  - attack.collection
+  - attack.t1114.003
