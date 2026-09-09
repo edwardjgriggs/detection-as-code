@@ -1,0 +1,31 @@
+title: OAuth Consent Granted To Application
+id: 383c35f2-5fbd-47a4-9ebf-4c41b8848afa
+status: experimental
+description: >
+  Detects a successful consent grant to an application in Entra ID. An illicit
+  consent grant gives an attacker-controlled app durable, token-based access to
+  mail and files that survives a password reset, so every grant is worth
+  reviewing until the tenant's approved applications are allowlisted.
+references:
+  - https://attack.mitre.org/techniques/T1528/
+  - https://learn.microsoft.com/en-us/defender-office-365/detect-and-remediate-illicit-consent-grants
+author: Edward Griggs
+date: 2026/09/09
+logsource:
+  product: azure
+  service: auditlogs
+detection:
+  selection:
+    OperationName: 'Consent to application'
+    Result: 'success'
+  condition: selection
+fields:
+  - InitiatedBy
+  - TargetResources
+falsepositives:
+  - Users consenting to well-known first-party or approved line-of-business apps
+  - Admin consent granted for the tenant while onboarding a new SaaS product
+level: high
+tags:
+  - attack.credential-access
+  - attack.t1528
