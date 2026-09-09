@@ -1,12 +1,12 @@
-# pySigma processing pipeline for Microsoft Sentinel sign-in detections.
+# pySigma processing pipeline for Microsoft Sentinel.
 #
-# This is a minimal starting pipeline. The kusto backend ships with bundled
-# pipelines for Sentinel and Defender XDR; prefer those where they fit, and
-# extend this file only for environment-specific field mappings. Verify the
-# transformation syntax against the pySigma and kusto backend version pinned
-# in the CI workflow before relying on it.
+# Each rule's logsource selects the Log Analytics table the converted query
+# runs against. The kusto backend only prepends a table when one of its bundled
+# pipelines is used, so the postprocessing template at the bottom does it for
+# this custom pipeline. Add a new set_state block when a rule introduces a new
+# logsource, otherwise conversion fails on the missing query_table state.
 
-name: sentinel-signin-pipeline
+name: sentinel-pipeline
 priority: 100
 
 transformations:
@@ -14,10 +14,29 @@ transformations:
     type: set_state
     key: query_table
     val: SigninLogs
+    rule_conditions:
+      - type: logsource
+        product: azure
+        service: signinlogs
 
-  - id: field-mappings
-    type: field_name_mapping
-    mapping:
-      ResultType: ResultType
-      IPAddress: IPAddress
-      UserPrincipalName: UserPrincipalName
+  - id: audit-table
+    type: set_state
+    key: query_table
+    val: AuditLogs
+    rule_conditions:
+      - type: logsource
+        product: azure
+        service: auditlogs
+
+  - id: office-table
+    type: set_state
+    key: query_table
+    val: OfficeActivity
+    rule_conditions:
+      - type: logsource
+        product: m365
+        service: exchange
+
+postprocessing:
+  - type: simple_template
+    template: "{pipeline.state[query_table]}\n| where {query}"
