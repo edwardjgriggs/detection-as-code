@@ -21,13 +21,17 @@ Every rule must include:
 - A `references` link to the relevant ATT&CK technique.
 - `falsepositives` notes.
 - A `level` and ATT&CK `tags`.
+- A `logsource` that `pipelines/sentinel.yml` maps to a Sentinel table. A new
+  log source needs a new `set_state` block in that pipeline.
 
 ## Validate locally before opening a PR
 
 ```
-pip install sigma-cli pysigma-backend-kusto
+pip install -r requirements.txt
+pytest -q
 sigma check rules/
 sigma convert -t kusto -p pipelines/sentinel.yml rules/
 ```
 
-If both commands succeed, your rule is ready for review.
+`pytest` enforces the rule requirements above. If all three commands succeed,
+your rule is ready for review.
