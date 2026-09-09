@@ -37,16 +37,21 @@ flowchart LR
 detection-as-code/
   rules/
     credential-access/
+      brute-force-single-account.yml
+      oauth-consent-grant.yml
       password-spray.yml
     persistence/
-      malicious-inbox-rule.yml
+      suspicious-inbox-rule.yml
+  tests/
+    test_rule_requirements.py    # pytest: every rule meets CONTRIBUTING.md
   .github/
     workflows/
-      validate-detections.yml    # CI: lint, validate, convert
+      validate-detections.yml    # CI: requirements, validate, convert
   pipelines/
-    sentinel.yml                 # pySigma processing pipeline config
+    sentinel.yml                 # pySigma pipeline: one table per log source
   build/
     kql/                         # generated queries (CI output)
+  requirements.txt               # pinned Sigma tooling and test dependencies
 ```
 
 ## A detection in Sigma
@@ -89,13 +94,19 @@ tags:
 
 ## The CI pipeline
 
-On every pull request that touches a rule, GitHub Actions validates the Sigma syntax and converts the rules to KQL. Nothing merges if validation fails.
+On every pull request that touches a rule, the pipeline, or the tests, GitHub Actions checks the rule requirements, validates the Sigma syntax, and converts the rules to KQL. Nothing merges if any step fails.
 
 ```yaml
 name: validate-detections
+
 on:
   pull_request:
-    paths: [ 'rules/**' ]
+    paths:
+      - 'rules/**'
+      - 'pipelines/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - '.github/workflows/validate-detections.yml'
   push:
     branches: [ main ]
 
@@ -103,39 +114,53 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v7
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
       - name: Install Sigma tooling
-        run: pip install sigma-cli pysigma-backend-kusto
+        run: pip install -r requirements.txt
+
+      - name: Check rule requirements
+        run: pytest -q
 
       - name: Validate rule syntax
         run: sigma check rules/
 
       - name: Convert rules to KQL
-        run: sigma convert -t kusto -p pipelines/sentinel.yml rules/ -o build/kql/
+        run: |
+          mkdir -p build/kql
+          sigma convert -t kusto -p pipelines/sentinel.yml rules/ -o build/kql/detections.kql
 
       - name: Upload generated queries
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: kql-detections
           path: build/kql/
 ```
 
-> Note: exact pySigma backend and pipeline package names depend on your target. Verify against the current [pySigma](https://github.com/SigmaHQ/pySigma) backend for Sentinel or Defender XDR before relying on the conversion in your own environment.
+The conversion step emits one query per rule, prefixed with the table its log source maps to in `pipelines/sentinel.yml`:
+
+```kql
+AuditLogs
+| where OperationName =~ "Consent to application" and Result =~ "success"
+```
+
+> Note: the conversion is verified against the tool versions pinned in `requirements.txt` (sigma-cli 3.1.0, pysigma-backend-kusto 1.0.1). The kusto backend only prepends a table when one of its bundled pipelines is used, so this repo's pipeline does it with a postprocessing template. Re-check the output after upgrading either package.
 
 ## Testing strategy
 
 Syntax validation is the floor, not the ceiling. The roadmap extends CI toward behavioral confidence:
 
 1. **Syntax and schema validation** (implemented): every rule is a well-formed Sigma rule.
-2. **Field validation** (roadmap): referenced fields exist in the target log schema.
-3. **Conversion verification** (implemented): every rule compiles to valid KQL.
-4. **Detection testing** (roadmap): pair each rule with an Atomic Red Team test and assert the converted query returns the expected event in lab data.
+2. **Rule requirement checks** (implemented): `pytest` enforces a stable UUID, an ATT&CK reference and tag, false positive notes, and a log source the pipeline knows how to map to a table.
+3. **Field validation** (roadmap): referenced fields exist in the target log schema.
+4. **Conversion verification** (implemented): every rule compiles to KQL against the correct table.
+5. **Detection testing** (roadmap): pair each rule with an Atomic Red Team test and assert the converted query returns the expected event in lab data.
 
 ## What this demonstrates
 
